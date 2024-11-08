@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic METAR Weather Data</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #89f7fe, #66a6ff);
+            color: #333;
+            overflow: auto;
+        }
+
+        .container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            width: 95%;
+            max-width: 1000px;
+        }
+
+        h1 {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .city-input-wrapper {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            width: 200px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            outline: none;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 15px;
+            border: none;
+            background: #66a6ff;
+            color: white;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        button:hover {
+            background: #89f7fe;
+        }
+
+        .table-container {
+            margin-top: 20px;
+            overflow-x: auto;
+            background: #f8fafc;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 18px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #edf2f7;
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+
+        tr:hover {
+            background-color: #eef2f6;
+        }
+
+        .remove-button {
+            background-color: rgba(255, 92, 92, 0.2);
+            border: none;
+            color: #ff5c5c;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+
+        .remove-button:hover {
+            background-color: rgba(255, 92, 92, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>METAR Weather Data</h1>
+        <div class="city-input-wrapper">
+            <input type="text" id="city" placeholder="Enter ICAO Code (e.g., CYYG)">
+            <button onclick="addCity()">Add City</button>
+            <button onclick="openForecast()">OpenWeather</button>
+            <button onclick="openEnvCanada()">EnvCanadaModel</button>
+            <button onclick="map()">Map</button>
+        </div>
+        <div id="citiesContainer">
+            <!-- Dynamic city weather data tables will be added here -->
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = 'f51b6971b51f476bab10d69939';
+        const BASE_URL = 'https://api.checkwx.com/metar';
+
+        function addCity() {
+            const cityInput = document.getElementById('city');
+            const cityCode = cityInput.value.trim().toUpperCase();
+            if (cityCode) {
+                fetchWeather(cityCode);
+                cityInput.value = ''; // Clear the input after adding
+            } else {
+                alert('Please enter a valid ICAO code.');
+            }
+        }
+
+        async function fetchWeather(cityCode) {
+            const url = `${BASE_URL}/${cityCode}/decoded`;
+
+            try {
+                const response = await fetch(url, {
+                    headers: { 'X-API-Key': API_KEY }
+                });
+                if (!response.ok) throw new Error('City not found or API limit reached');
+
+                const data = await response.json();
+                displayWeather(data, cityCode);
+            } catch (error) {
+                alert(`Error fetching data for ${cityCode}: ${error.message}`);
+            }
+        }
+
+        function displayWeather(data, cityCode) {
+            const metar = data?.data?.[0];
+            if (!metar) {
+                alert(`No data available for ${cityCode}`);
+                return;
+            }
+
+            const clouds = metar.clouds && metar.clouds.length > 0
+                ? metar.clouds.map(cloud => {
+                    const altitudeFeet = cloud.base_feet_agl ? `${cloud.base_feet_agl} ft AGL` : 'N/A';
+                    return `${cloud.text} at ${altitudeFeet}`;
+                }).join('<br>')
+                : 'No significant cloud cover';
+
+            const dewpoint = metar.dewpoint?.celsius ?? 'N/A';
+            const humidity = metar.humidity?.percent ?? 'N/A';
+
+            // Create the table element dynamically
+            const tableHTML = `
+                <div class="table-container" id="city-${cityCode}">
+                    <button class="remove-button" onclick="removeCity('${cityCode}')">Remove</button>
+                    <table>
+                        <tr><th colspan="2">Weather Data for ${metar.station.name} (${cityCode})</th></tr>
+                        <tr><th>ICAO Code</th><td>${metar.icao}</td></tr>
+                        <tr><th>Temperature</th><td>${metar.temperature.celsius} °C</td></tr>
+                        <tr><th>Dewpoint</th><td>${dewpoint} °C</td></tr>
+                        <tr><th>Humidity</th><td>${humidity} %</td></tr>
+                        <tr><th>Wind</th><td>${metar.wind.degrees}° at ${metar.wind.speed_kts} knots</td></tr>
+                        <tr><th>Visibility</th><td>${metar.visibility.miles} miles</td></tr>
+                        <tr><th>Clouds</th><td>${clouds}</td></tr>
+                        <tr><th>Raw METAR</th><td>${metar.raw_text}</td></tr>
+                    </table>
+                </div>
+            `;
+
+            // Insert the table into the DOM
+            document.getElementById('citiesContainer').insertAdjacentHTML('beforeend', tableHTML);
+        }
+
+        function removeCity(cityCode) {
+            const cityElement = document.getElementById(`city-${cityCode}`);
+            if (cityElement) {
+                cityElement.remove();
+            }
+        }
+
+        function openForecast() {
+            window.open("openweather.html", "_blank");
+        }
+        function openEnvCanada() {
+            window.open("envcanada.html", "_blank");
+        }
+        function map() {
+            window.open("map.html", "_blank");
+        }
+    </script>
+</body>
+</html>

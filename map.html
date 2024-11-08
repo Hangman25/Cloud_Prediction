@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudiness Map for Airport Locations</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-top: 20px;
+        }
+
+        #controls, #dropdown-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 10px;
+            padding: 10px;
+            background-color: #ecf0f1;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        label {
+            margin-right: 10px;
+            font-weight: bold;
+            color: #34495e;
+        }
+
+        input[type="text"], select {
+            padding: 8px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        button {
+            padding: 8px 12px;
+            margin-left: 10px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        #map {
+            height: 600px;
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            margin: 10px auto;
+        }
+
+        #dropdown-container {
+            margin-top: 0;
+            width: 100%;
+            max-width: 400px;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Cloudiness Map for Airport Locations</h2>
+
+<div id="controls">
+    <label for="icao-code-input">Enter ICAO Code: </label>
+    <input type="text" id="icao-code-input" placeholder="e.g., CYYG">
+    <button onclick="fetchAndDisplayData()">Search</button>
+</div>
+
+<div id="dropdown-container">
+    <label for="cloud-layer-select">Select Cloud Layer: </label>
+    <select id="cloud-layer-select">
+        <option value="">-- Select a Cloud Layer --</option>
+    </select>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script>
+    const API_KEY = 'f51b6971b51f476bab10d69939';
+    const BASE_URL = 'https://api.checkwx.com/metar';
+
+    // Initialize the map centered on Charlottetown Airport as the default location
+    var map = L.map('map').setView([46.2900, -63.1210], 18);
+
+    // Add a tile layer (background map)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 18,
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Function to determine marker color based on cloud type
+    function getColor(cloudType) {
+        const type = cloudType.toLowerCase();
+        switch (type) {
+            case 'few': return 'lightgreen';       // Few clouds (1-25% coverage)
+            case 'scattered': return 'yellow';     // Scattered clouds (26-50% coverage)
+            case 'broken': return 'orange';        // Broken clouds (51-84% coverage)
+            case 'overcast': return 'red';         // Overcast clouds (85-100% coverage)
+            default: return 'blue';                // Clear sky or undefined cloud type
+        }
+    }
+
+    // Store current marker to clear it when a new selection is made
+    let currentMarker = null;
+
+    // Function to fetch cloud data from the API
+    async function fetchCloudData(icaoCode) {
+        try {
+            const response = await fetch(`${BASE_URL}/${icaoCode}/decoded`, {
+                headers: { 'X-API-Key': API_KEY }
+            });
+
+            if (!response.ok) {
+                console.error('Error fetching cloud data:', response.statusText);
+                alert('Invalid ICAO code or data not available. Please try another code.');
+                return null;
+            }
+
+            const data = await response.json();
+            const metarData = data.data[0];
+
+            const clouds = metarData.clouds || [];
+            const coordinates = metarData.station?.geometry?.coordinates;
+
+            if (!coordinates || coordinates.length < 2) {
+                console.error("Latitude or Longitude not found in response data.");
+                alert("Location data not available for this ICAO code.");
+                return null;
+            }
+
+            return {
+                clouds: clouds,
+                latitude: coordinates[1],
+                longitude: coordinates[0]
+            };
+        } catch (error) {
+            console.error("Fetch error:", error);
+            alert("Error fetching data. Please try again.");
+            return null;
+        }
+    }
+
+    // Function to populate dropdown with cloud layers
+    function populateDropdown(clouds) {
+        const dropdown = document.getElementById('cloud-layer-select');
+        dropdown.innerHTML = '<option value="">-- Select a Cloud Layer --</option>';
+
+        clouds.forEach((cloudLayer, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.text = `${cloudLayer.text} at ${cloudLayer.base_feet_agl || 'N/A'} ft`;
+            dropdown.appendChild(option);
+        });
+
+        dropdown.onchange = (event) => {
+            const selectedIndex = event.target.value;
+            if (selectedIndex !== "") {
+                displayCloudLayer(clouds[selectedIndex]);
+            }
+        };
+    }
+
+    // Function to display selected cloud layer on the map
+    function displayCloudLayer(cloudLayer) {
+        const cloudiness = cloudLayer.code || "unknown";
+        const cloudBaseHeight = cloudLayer.base_feet_agl || 'N/A';
+
+        if (currentMarker) {
+            map.removeLayer(currentMarker);
+        }
+
+        const color = getColor(cloudiness);
+        currentMarker = L.circleMarker([map.getCenter().lat, map.getCenter().lng], {
+            radius: 20,
+            color: color,
+            fillOpacity: 0.5
+        }).addTo(map);
+
+        currentMarker.bindPopup(`
+            <strong>Cloud Type: ${cloudiness}</strong><br>
+            Cloud Base Height: ${cloudBaseHeight} ft
+        `).openPopup();
+    }
+
+    // Function to fetch and display data based on the ICAO code
+    async function fetchAndDisplayData() {
+        const icaoCode = document.getElementById('icao-code-input').value.trim().toUpperCase() || 'CYYG';
+        const cloudData = await fetchCloudData(icaoCode);
+
+        if (cloudData && cloudData.clouds.length > 0) {
+            map.setView([cloudData.latitude, cloudData.longitude], 10);
+            populateDropdown(cloudData.clouds);
+        } else {
+            console.warn("No cloud data available.");
+        }
+    }
+
+    fetchAndDisplayData();
+</script>
+
+</body>
+</html>
