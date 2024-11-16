@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TAF Data Viewer</title>
+    <style>
+        /* Global Styles */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f5f5f7;
+            color: #333;
+        }
+
+        header {
+            background-color: #333;
+            padding: 10px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header a {
+            color: white;
+            text-decoration: none;
+            margin: 0 10px;
+            font-size: 16px;
+        }
+
+        header a:hover {
+            text-decoration: underline;
+        }
+
+        header .logo {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .hero {
+            text-align: center;
+            padding: 60px 20px;
+            background: linear-gradient(to bottom, #f5f5f7, #e2e2e6);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .hero h1 {
+            font-size: 42px;
+            font-weight: bold;
+            margin: 0 0 20px;
+        }
+
+        .hero p {
+            font-size: 18px;
+            color: #555;
+            margin: 0 0 20px;
+        }
+
+        .hero input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            width: 300px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+
+        .hero button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            background-color: #0071e3;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .hero button:hover {
+            background-color: #005bb5;
+        }
+
+        .content {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .content h2 {
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: #0071e3;
+        }
+
+        .content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .content table, th, td {
+            border: 1px solid #ddd;
+        }
+
+        .content th, .content td {
+            padding: 15px;
+            text-align: left;
+        }
+
+        .content th {
+            background-color: #f5f5f7;
+        }
+
+        .forecast {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .forecast h3 {
+            margin: 0 0 10px;
+            font-size: 18px;
+            color: #0071e3;
+        }
+
+        footer {
+            background-color: #333;
+            color: white;
+            padding: 40px 20px;
+            margin-top: 40px;
+        }
+
+        footer h2 {
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: #f5f5f7;
+        }
+
+        footer ul {
+            list-style: disc;
+            margin-left: 20px;
+            color: #ccc;
+        }
+
+        footer ul li {
+            margin-bottom: 10px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        footer ul li ul {
+            list-style: circle;
+            margin-left: 20px;
+        }
+
+        footer ul li ul li {
+            font-size: 15px;
+            margin-bottom: 5px;
+        }
+
+        footer a {
+            color: #0071e3;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <div class="hero">
+        <h1>TAF Data Viewer</h1>
+        <p>Enter an ICAO code to view TAF data:</p>
+        <input type="text" id="icao-input" placeholder="Enter ICAO code (e.g., CYYG)" value="CYYG">
+        <button onclick="updateTAF()">Fetch TAF Data</button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content" id="taf-data">
+        <h2>TAF Data Table</h2>
+        <div id="taf-container">
+            <p>Loading TAF data...</p>
+        </div>
+    </div>
+
+    <!-- Footer Section -->
+    <footer>
+        <h2>How to Interpret TAF Data</h2>
+        <p><strong>TAF</strong> (Terminal Aerodrome Forecast) provides concise weather forecasts for specific airports. Here's a quick guide:</p>
+        <ul>
+            <li><strong>Raw Text:</strong> The raw TAF data as issued by meteorological services.</li>
+            <li><strong>Station:</strong> The name of the airport or station issuing the forecast.</li>
+            <li><strong>Location:</strong> Geographic location of the station.</li>
+            <li><strong>Issue Time:</strong> The time when the forecast was issued (UTC).</li>
+            <li><strong>Valid Time From/To:</strong> The period during which the forecast is valid.</li>
+            <li><strong>Forecast Details:</strong></li>
+            <ul>
+                <li><strong>Visibility:</strong> Indicates expected visibility in miles and meters.</li>
+                <li><strong>Wind:</strong> Direction and speed of the wind in degrees and knots.</li>
+                <li><strong>Conditions:</strong> Weather conditions such as rain, snow, or clear skies.</li>
+                <li><strong>Clouds:</strong> Cloud layers, including coverage and altitude in feet.</li>
+            </ul>
+        </ul>
+        <p>For more details on interpreting TAF data, visit the <a href="https://www.weather.gov" target="_blank">National Weather Service</a>.</p>
+    </footer>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        const API_KEY = 'f51b6971b51f476bab10d69939';
+        let currentLocation = 'CYYG';
+
+        async function fetchTAFData(location) {
+            const BASE_URL = `https://api.checkwx.com/taf/${location}/decoded`;
+            try {
+                const response = await fetch(BASE_URL, {
+                    headers: { 'X-API-Key': API_KEY }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+
+                    if (data.data && data.data.length > 0) {
+                        displayTAFData(data.data[0]);
+                    } else {
+                        document.getElementById('taf-container').innerHTML = '<p>No TAF data available for this location.</p>';
+                    }
+                } else {
+                    document.getElementById('taf-container').innerHTML = `<p>Error fetching TAF data: ${response.status} ${response.statusText}</p>`;
+                }
+            } catch (error) {
+                document.getElementById('taf-container').innerHTML = `<p>An error occurred: ${error.message}</p>`;
+            }
+        }
+
+        function displayTAFData(tafData) {
+            const tafContainer = document.getElementById('taf-container');
+            tafContainer.innerHTML = `
+                <table>
+                    <tr><th>Raw Text</th><td>${tafData.raw_text || 'N/A'}</td></tr>
+                    <tr><th>Station</th><td>${tafData.station?.name || 'N/A'}</td></tr>
+                    <tr><th>Location</th><td>${tafData.station?.location || 'N/A'}</td></tr>
+                    <tr><th>Issue Time</th><td>${tafData.timestamp?.issued || 'N/A'}</td></tr>
+                    <tr><th>Valid Time From</th><td>${tafData.timestamp?.from || 'N/A'}</td></tr>
+                    <tr><th>Valid Time To</th><td>${tafData.timestamp?.to || 'N/A'}</td></tr>
+                </table>
+                <h2>Forecast Details</h2>
+                ${tafData.forecast.map(displayForecast).join('')}
+            `;
+        }
+
+        function displayForecast(forecast) {
+            return `
+                <div class="forecast">
+                    <h3>Forecast Period: ${forecast.timestamp.from} to ${forecast.timestamp.to}</h3>
+                    <p><strong>Visibility:</strong> ${forecast.visibility?.miles || 'N/A'} miles (${forecast.visibility?.meters || 'N/A'} meters)</p>
+                    <p><strong>Wind:</strong> ${forecast.wind ? `${forecast.wind.degrees}° at ${forecast.wind.speed_kts} kts (Gusts: ${forecast.wind.gust_kts || 'N/A'} kts)` : 'N/A'}</p>
+                    <p><strong>Conditions:</strong> ${forecast.conditions ? forecast.conditions.map(c => c.text).join(', ') : 'N/A'}</p>
+                    <p><strong>Clouds:</strong> ${
+                        forecast.clouds
+                            ? forecast.clouds.map(c => `${c.text} at ${c.feet || 'N/A'} feet`).join(', ')
+                            : 'No cloud data available'
+                    }</p>
+                </div>
+            `;
+        }
+
+        function updateTAF() {
+            const input = document.getElementById('icao-input').value.trim();
+            if (input) {
+                currentLocation = input.toUpperCase();
+                fetchTAFData(currentLocation);
+            } else {
+                alert('Please enter a valid ICAO code.');
+            }
+        }
+
+        // Fetch default location on page load
+        fetchTAFData(currentLocation);
+    </script>
+</body>
+</html>

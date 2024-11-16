@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic METAR Weather Data</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f7;
+            color: #1d1d1f;
+        }
+
+        /* Header Styling */
+        header {
+            background-color: #333;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 20px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 54px;
+            font-weight: 700;
+        }
+
+        /* Hero Section */
+        .hero-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 60px 20px;
+            background: linear-gradient(135deg, #e0eafc, #cfdef3);
+        }
+
+        .hero-section h1 {
+            font-size: 38px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .hero-section p {
+            font-size: 18px;
+            color: #555;
+            max-width: 1000px;
+            margin: 0 auto 20px;
+        }
+
+        /* Button Styling */
+        .hero-button {
+            background: #0071e3;
+            color: white;
+            font-size: 18px;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            margin-top: 20px;
+        }
+
+        .hero-button:hover {
+            background: #005bb5;
+        }
+
+        /* Input Section */
+        .input-section {
+            text-align: center;
+            padding: 50px 20px;
+            background: white;
+        }
+
+        .input-section input[type="text"] {
+            padding: 12px;
+            width: 300px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+
+        .input-section button {
+            padding: 12px 20px;
+            border: none;
+            background: #0071e3;
+            color: white;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .input-section button:hover {
+            background: #005bb5;
+        }
+
+        /* Additional Button Group */
+        .button-wrapper {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        /* Data Cards Section */
+        .card-section {
+            padding: 50px 20px;
+            background-color: #f8f9fb;
+            display: grid;
+            gap: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+
+        .weather-card {
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            transition: transform 0.3s ease;
+            text-align: left;
+        }
+
+        .weather-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .weather-card h3 {
+            font-size: 22px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .remove-button {
+            background-color: #ff3b30;
+            color: white;
+            font-size: 14px;
+            border: none;
+            padding: 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .remove-button:hover {
+            background-color: #d32f2f;
+        }
+
+        /* Footer Styling */
+        footer {
+            background-color: #333;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        footer p {
+            margin: 0;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>CIRRUS</h1>
+    </header>
+
+    <div class="hero-section">
+        <h1>Cloud-based Intelligent Resource for Renewable Utility and Solar-prediction</h1>
+        <p>Enter your city’s ICAO code to get METAR weather information. TAF to get quick weather forecast</p>
+        <p>OpenWeather to get 5 Days forecast for broad weather overview </p>
+        <p>HRRR to get 18 hours forecast for precise weather prediction </p>
+
+    </div>
+
+    <div class="input-section" id="input-section">
+        <input type="text" id="city" placeholder="Enter ICAO Code (e.g., CYYG)">
+        <button onclick="addCity()">Add City</button>
+        <div class="button-wrapper">
+            <button onclick="taf()">TAF</button>
+            <button onclick="openForecast()">OpenWeather</button>
+            <button onclick="openEnvCanada()">HRRR</button>
+            <button onclick="map()">Map</button>
+
+        </div>
+    </div>
+
+    <div class="card-section" id="citiesContainer">
+        <!-- Dynamic city weather data will appear here -->
+    </div>
+
+    <footer>
+        <p>© Developed by Yuvraj Gill for Design 3 -- Year 2024</p>
+    </footer>
+
+    <script>
+        const API_KEY = 'f51b6971b51f476bab10d69939';
+        const BASE_URL = 'https://api.checkwx.com/metar';
+
+        function scrollToInput() {
+            document.getElementById("input-section").scrollIntoView({ behavior: "smooth" });
+        }
+
+        function addCity() {
+            const cityInput = document.getElementById('city');
+            const cityCode = cityInput.value.trim().toUpperCase();
+            if (cityCode) {
+                fetchWeather(cityCode);
+                cityInput.value = '';
+            } else {
+                alert('Please enter a valid ICAO code.');
+            }
+        }
+
+        async function fetchWeather(cityCode) {
+            const url = `${BASE_URL}/${cityCode}/decoded`;
+
+            try {
+                const response = await fetch(url, {
+                    headers: { 'X-API-Key': API_KEY }
+                });
+                if (!response.ok) throw new Error('City not found or API limit reached');
+
+                const data = await response.json();
+                displayWeather(data, cityCode);
+            } catch (error) {
+                alert(`Error fetching data for ${cityCode}: ${error.message}`);
+            }
+        }
+
+        function displayWeather(data, cityCode) {
+            const metar = data?.data?.[0];
+            if (!metar) {
+                alert(`No data available for ${cityCode}`);
+                return;
+            }
+
+            const clouds = metar.clouds && metar.clouds.length > 0
+                ? metar.clouds.map(cloud => `${cloud.text} at ${cloud.base_feet_agl || 'N/A'} ft AGL`).join('<br>')
+                : 'No significant cloud cover';
+
+            const dewpoint = metar.dewpoint?.celsius ?? 'N/A';
+            const humidity = metar.humidity?.percent ?? 'N/A';
+
+            const cardHTML = `
+                <div class="weather-card" id="city-${cityCode}">
+                    <button class="remove-button" onclick="removeCity('${cityCode}')">Remove</button>
+                    <h3>${metar.station.name} (${cityCode})</h3>
+                    <table>
+                        <tr><th>Temperature</th><td>${metar.temperature.celsius} °C</td></tr>
+                        <tr><th>Dewpoint</th><td>${dewpoint} °C</td></tr>
+                        <tr><th>Humidity</th><td>${humidity} %</td></tr>
+                        <tr><th>Wind</th><td>${metar.wind.degrees}° at ${metar.wind.speed_kts} knots</td></tr>
+                        <tr><th>Visibility</th><td>${metar.visibility.miles} miles</td></tr>
+                        <tr><th>Clouds</th><td>${clouds}</td></tr>
+                        <tr><th>Raw METAR</th><td>${metar.raw_text}</td></tr>
+                    </table>
+                </div>
+            `;
+
+            document.getElementById('citiesContainer').insertAdjacentHTML('beforeend', cardHTML);
+        }
+
+        function removeCity(cityCode) {
+            document.getElementById(`city-${cityCode}`).remove();
+        }
+
+        function openForecast() {
+            window.open("openweather.html", "_blank");
+        }
+
+        function openEnvCanada() {
+            window.open("envcanada.html", "_blank");
+        }
+
+        function map() {
+            window.open("map.html", "_blank");
+        }
+        function taf() {
+            window.open("taf.html", "_blank");
+        }
+    </script>
+</body>
+</html>

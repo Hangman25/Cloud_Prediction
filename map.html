@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Cloudiness Map with Animated Layers</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #eef2f7;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        h2 {
+            text-align: center;
+            color: #1a3b5d;
+            margin-top: 20px;
+        }
+        #controls, #dropdown-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 10px;
+            padding: 12px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        label {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        input[type="text"], select {
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            outline: none;
+        }
+        button {
+            padding: 8px 14px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #217dbb;
+        }
+        #map {
+            height: 600px;
+            width: 100%;
+            border-radius: 8px;
+            margin: 20px auto;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Cloud Layer Animation */
+        .animated-cloud-layer {
+            animation: cloudMovement 5s ease-in-out infinite alternate;
+        }
+        @keyframes cloudMovement {
+            0% { transform: scale(1); opacity: 0.6; }
+            100% { transform: scale(1.1); opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+
+<h2>Interactive Cloudiness Map with Animated Layers</h2>
+
+<div id="controls">
+    <label for="icao-code-input">Enter ICAO Code: </label>
+    <input type="text" id="icao-code-input" placeholder="e.g., CYYG">
+    <button onclick="fetchAndDisplayData()">Search</button>
+</div>
+
+<div id="dropdown-container">
+    <label for="cloud-layer-select">Select Cloud Layer: </label>
+    <select id="cloud-layer-select">
+        <option value="">-- Select a Cloud Layer --</option>
+    </select>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script>
+    const API_KEY = 'f51b6971b51f476bab10d69939';
+    const BASE_URL = 'https://api.checkwx.com/metar';
+
+    let map = L.map('map').setView([46.2900, -63.1210], 10); // Default to CYYG
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 18,
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    let currentMarkers = [];
+
+    async function fetchCloudData(icaoCode = 'CYYG') {
+        try {
+            const response = await fetch(`${BASE_URL}/${icaoCode}/decoded`, {
+                headers: { 'X-API-Key': API_KEY }
+            });
+            if (!response.ok) throw new Error('Data not available');
+            const data = await response.json();
+            const metarData = data.data[0];
+            const clouds = metarData.clouds || [];
+            const coordinates = metarData.station?.geometry?.coordinates;
+            if (!coordinates || coordinates.length < 2) throw new Error("Location data missing");
+            return { clouds: clouds, latitude: coordinates[1], longitude: coordinates[0] };
+        } catch (error) {
+            console.error("Fetch error:", error);
+            showError("Error fetching data. Please check the ICAO code or try again.");
+            return null;
+        }
+    }
+
+    function populateDropdown(clouds) {
+        const dropdown = document.getElementById('cloud-layer-select');
+        dropdown.innerHTML = '<option value="">-- Select a Cloud Layer --</option>';
+        clouds.forEach((cloudLayer, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.text = `${cloudLayer.text} at ${cloudLayer.base_feet_agl || 'N/A'} ft`;
+            dropdown.appendChild(option);
+        });
+        dropdown.onchange = (event) => {
+            const selectedIndex = event.target.value;
+            if (selectedIndex !== "") displayCloudLayers(clouds[selectedIndex]);
+        };
+    }
+
+    function displayCloudLayers(cloudLayer) {
+        clearMarkers();
+
+        const cloudiness = cloudLayer.code || "unknown";
+        const baseHeight = cloudLayer.base_feet_agl || 'N/A';
+        const color = getColor(cloudiness);
+        const latLng = map.getCenter();
+
+        // Create multiple layers with varying radius and opacity for animation
+        for (let i = 1; i <= 3; i++) {
+            let layer = L.circle(latLng, {
+                radius: 1000 * i,
+                color: color,
+                fillOpacity: 0.1 * (4 - i),
+                className: 'animated-cloud-layer'
+            }).addTo(map);
+            currentMarkers.push(layer);
+        }
+
+        L.popup()
+            .setLatLng(latLng)
+            .setContent(`<strong>Cloud Type: ${cloudiness}</strong><br>Cloud Base Height: ${baseHeight} ft`)
+            .openOn(map);
+    }
+
+    function getColor(cloudType) {
+        const type = cloudType.toLowerCase();
+        switch (type) {
+            case 'few': return 'lightgreen';
+            case 'scattered': return 'yellow';
+            case 'broken': return 'orange';
+            case 'overcast': return 'red';
+            default: return 'blue';
+        }
+    }
+
+    async function fetchAndDisplayData() {
+        const icaoCode = document.getElementById('icao-code-input').value.trim().toUpperCase() || 'CYYG';
+        const cloudData = await fetchCloudData(icaoCode);
+        if (cloudData && cloudData.clouds.length > 0) {
+            map.flyTo([cloudData.latitude, cloudData.longitude], 10); // Smooth transition
+            populateDropdown(cloudData.clouds);
+        } else {
+            showError("No cloud data available.");
+        }
+    }
+
+    function clearMarkers() {
+        currentMarkers.forEach(marker => map.removeLayer(marker));
+        currentMarkers = [];
+    }
+
+    function showError(message) {
+        alert(message); // Replace with custom modal if desired
+    }
+
+    fetchAndDisplayData();
+</script>
+
+</body>
+</html>
